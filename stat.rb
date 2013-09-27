@@ -2,11 +2,12 @@
 require 'curses'
 include Curses
 
-
-
+# definit les stats des debits montants et descendants
 class Stat
 
   attr_reader :asc_max, :desc_max, :cols, :lines, :vit, :noasc, :nodesc, :sym, :positions
+  
+  # initialise l'interface
   def initialize
     # initialisation de l'ecran
     Curses.init_screen
@@ -23,21 +24,35 @@ class Stat
     @lines = Curses.lines
     @cols = Curses.cols
 
+    # ces parametres sont modifiables avec les options
+
+    # temps entre chaque test
     @vit = 0.5
+    # debit descendant maximum (pour avoir une echel du graphique correct)
     @desc_max = 3500
+    # debit ascendant maximum
     @asc_max = 150
+    # ne pas afficher le graphique ascendant
     @noasc = false
+    # ne pas afficher le graphique descendant
     @nodesc = false
+    # utilisation du symbole pour les graphiques
     @sym = "#"
   end
 
+  # démarre les graphiques selon les parametres choisis
   def run
     params2 = get_params
+
+    # demande d'aide si different de true
     if params2 != true
       Curses.close_screen
       return params2
     end
+    # vide l'ecran
     reset_screen
+
+    # test sur l'utilisation de double graphiques ou non
     if @noasc && @nodesc || !@noasc && !@nodesc
       graph_all
     else
@@ -46,7 +61,10 @@ class Stat
     true
   end
 
+  # affichage d'un graphique unique
   def greph_desc_or_asc
+
+    # recuperation des donnees differenciant les deux type de debits
     max = @desc_max
     indice = 1
     color = COLOR_RED
@@ -55,7 +73,10 @@ class Stat
       indice = 2
       color = COLOR_GREEN
     end
+
+    # boucle infi (touche q stop le script)
     while true
+      # verifie si la taille du terminal a changé
       if @lines != Curses.lines
         @lines = Curses.lines
         @positions = reset_screen
@@ -64,15 +85,18 @@ class Stat
         @cols = Curses.cols
         @positions = reset_screen
       end
+
+      # recuperation des debit ascendant et descendant via ifstat
       stat = `ifstat #{vit} 1 | grep "[0-9]*\.[0-9]*"`
       istat = stat.match(/(\d+\.\d+)\ +(\d+\.\d+)/)
       deb = istat[indice]
+
+      # hauteur de la barre pour le graphique (echel du debit max et du debit reçu)
       nb = (deb.to_f / (max.to_f / @lines).to_f).to_i + 1    
-      i = 1
       tmp = [[]]
 
+      # ajoute le dernier debit reçu en premiere place du tableau temporaire
       i = 0
-
       while i < @lines
         if i == @lines - 2
           tmp[0].push(@sym)
@@ -83,6 +107,8 @@ class Stat
         end
         i += 1
       end
+
+      # on recopie les anciennes valeurs a la suite
       i = 1
       @positions.each do |pos|
         tmp[i] = pos
@@ -92,12 +118,14 @@ class Stat
         i += 1
       end
 
+      # on reforme notre tableau de reference
       @positions = tmp
-      i = 1
+      i = 0
+      # on parcours la tableau et affiche le caractere contenu a la position x, y du tableau
       @positions.each do |pos|
         j = 0
         pos.each do |x|
-          Curses.setpos(j + 1, i)
+          Curses.setpos(j + 1, i + 1)
           Curses.attron(color_pair(color)){
             Curses.addstr(x)
           }
@@ -105,19 +133,18 @@ class Stat
         end
         i += 1
       end
-      Curses.setpos(0, 0)
-      Curses.attron(color_pair(color)){
-        Curses.addstr(" " * @cols)
-      }
+
+      # ajoute du debit en Kb en haut à gauche
       Curses.setpos(0, 1)
       Curses.attron(color_pair(color)){
-        Curses.addstr("#{deb} Kb")
+        Curses.addstr("#{deb} Kb" + " " * cols)
       }
       Curses.refresh
       break if close_screen
     end
   end
 
+  # affichage du graphe par defaut contenant les deux type de debits
   def graph_all
     # boucle infini pour le moniteur
     while true
@@ -206,26 +233,24 @@ class Stat
         i += 1
       end
     
-      # vide la premiere ligne
-      Curses.setpos(0, 0)
-      Curses.attron(color_pair(COLOR_RED)){
-        Curses.addstr(" "*cols)
-      }
       # affiche le le debit descendant en haut a gauche
       Curses.setpos(0, 1)
       Curses.attron(color_pair(COLOR_RED)){
-        Curses.addstr("#{desc} Kb")
+        Curses.addstr("#{desc} Kb" + " " * cols)
       }
       # affiche le debit ascendant en haut au milieu
       Curses.setpos(0, cols / 2 + 1)
       Curses.attron(color_pair(COLOR_GREEN)){
         Curses.addstr("#{asc} Kb")
       }
+      # raffraichi l'affichage des données
       Curses.refresh
+      # verifie si l'utilisateur souhaite stopper le script
       break if close_screen
     end
   end
 
+  # reinitialise les données affichées a l'ecran (en cas de changement de taille du terminal)
   def reset_screen
     # initialisation du tableau avec des cases vides
     @positions = []
@@ -242,6 +267,7 @@ class Stat
     @positions
   end
 
+  # verifie si la touche q a été enfoncée et stop le script
   def close_screen
     begin
       key = STDIN.read_nonblock(1)
@@ -260,6 +286,7 @@ class Stat
     end
   end
 
+  # lit les options données
   def get_params
     i=0
     # verification des arguments passés
@@ -325,7 +352,9 @@ Affiche le moniteur des débits montant et descendant.
   end
 end
 
+# initialise le terminal
 stat = Stat.new
+# affiche les graphique ou le message d'aide
 run = stat.run
 if run != true
   puts run
