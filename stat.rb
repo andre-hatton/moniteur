@@ -32,13 +32,18 @@ class Stat
   end
 
   def run
+    params2 = get_params
+    if params2 != true
+      Curses.close_screen
+      return params2
+    end
     reset_screen
-    get_params
     if @noasc && @nodesc || !@noasc && !@nodesc
       graph_all
     else
       greph_desc_or_asc
     end
+    true
   end
 
   def greph_desc_or_asc
@@ -301,7 +306,7 @@ class Stat
             @sym = arg_sym[1]
           end
         elsif arg.match(/^\-\-help/) || arg.match(/^\-h/)
-          puts "Utilisation : ruby stat.rb [OPTION]...
+          return "Utilisation : ruby stat.rb [OPTION]...
 Affiche le moniteur des débits montant et descendant.
 -asc, --ascendant                 Debit maximum montant
 -desc, --desc                     Debit maximum descendant
@@ -312,7 +317,6 @@ Affiche le moniteur des débits montant et descendant.
 
 -h, --help                        Affiche l'aide et quitte
 "
-          abort    
         end
         i += 1
       end
@@ -322,4 +326,7 @@ Affiche le moniteur des débits montant et descendant.
 end
 
 stat = Stat.new
-stat.run
+run = stat.run
+if run != true
+  puts run
+end
